@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asesmen Interaktif LitNum PGRI Power Gresik</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        
+        /* Custom Scrollbar for specific areas */
+        .scroll-area { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .scroll-area::-webkit-scrollbar { width: 6px; }
+        .scroll-area::-webkit-scrollbar-track { background: transparent; }
+        .scroll-area::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .scroll-area::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Split Layout */
+        .split-layout { display: flex; height: calc(100vh - 64px); }
+        .stimulus-pane { width: 50%; padding: 2rem; background: white; border-right: 1px solid #e2e8f0; }
+        .question-pane { width: 50%; padding: 2rem; background: #fafaf9; }
+        
+        @media (max-width: 1024px) {
+            .split-layout { flex-direction: column; height: auto; }
+            .stimulus-pane, .question-pane { width: 100%; height: auto; border-right: none; border-bottom: 1px solid #e2e8f0; }
+            .stimulus-pane { max-height: 40vh; }
+        }
+
+        /* Checkbox/Radio Polish */
+        .option-label { display: flex; align-items: flex-start; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 0.75rem; cursor: pointer; transition: 0.2s; background: white; }
+        .option-label:hover { border-color: #cbd5e1; background: #f8fafc; }
+        .option-input { margin-top: 0.25rem; margin-right: 1rem; width: 1.2rem; height: 1.2rem; cursor: pointer; flex-shrink: 0; }
+        
+        .correct-ans { border-color: #10b981 !important; background-color: #ecfdf5 !important; }
+        .wrong-ans { border-color: #ef4444 !important; background-color: #fef2f2 !important; }
+
+        /* Anti-Cheat: Mencegah seleksi (blok) teks */
+        body {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body class="text-slate-800 h-screen overflow-hidden flex flex-col">
+
+    <!-- LOGIN SCREEN (NON-FULLSCREEN) -->
+    <div id="login-screen" class="absolute inset-0 z-50 bg-slate-50 flex items-center justify-center">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+            <div class="text-center mb-8">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/9/9c/Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg" alt="Logo" class="h-16 mx-auto mb-4 opacity-80">
+                <h1 class="text-2xl font-bold text-slate-800">Simulasi Asesmen LitNum Interaktif</h1>
+                <p class="text-slate-500 mt-2">Literasi & Numerasi - Kelas 9 SMP</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Nama Lengkap</label>
+                    <input type="text" id="student-name" oninput="validateLogin()" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan nama...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Kelas</label>
+                    <select id="student-class" onchange="validateLogin()" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="">Pilih Kelas...</option>
+                        <option value="9A">Kelas 9A</option>
+                        <option value="9B">Kelas 9B</option>
+                        <option value="9C">Kelas 9C</option>
+                    </select>
+                </div>
+                <button id="btn-start" disabled onclick="startQuiz()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors mt-4 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Mulai Asesmen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP SCREEN (FULLSCREEN) -->
+    <div id="app-screen" class="hidden flex-col h-screen">
+        <!-- Header -->
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10 shrink-0">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" class="text-slate-500 hover:text-slate-800 text-xl lg:hidden">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h2 class="font-bold text-lg text-slate-800 hidden sm:block"><i class="fas fa-laptop-code text-blue-600 mr-2"></i>CBT - LitNum PGRI Power Gresik</h2>
+            </div>
+            
+            <!-- Timer Display -->
+            <div id="timer-display" class="hidden items-center justify-center bg-slate-100 text-slate-700 px-4 py-1.5 rounded-full font-bold border border-slate-200 transition-colors">
+                <i class="fas fa-clock mr-2"></i> <span id="time-remaining">02:00:00</span>
+            </div>
+
+            <div class="flex items-center gap-4 text-sm font-medium text-slate-600">
+                <div id="user-info-display" class="hidden sm:block"><i class="fas fa-user-circle mr-1"></i> <span id="display-name">Siswa</span></div>
+                <!-- Log Out Button -->
+                <button onclick="logout()" class="flex items-center gap-2 bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors" title="Keluar & Kembali ke Awal">
+                    <i class="fas fa-sign-out-alt"></i> <span class="hidden sm:inline">Log Out</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden relative">
+            <!-- Sidebar Navigation -->
+            <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col absolute lg:relative z-20 h-full transition-transform transform -translate-x-full lg:translate-x-0 shrink-0">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+                    <h3 class="font-bold text-slate-700">Daftar Soal</h3>
+                    <button onclick="toggleSidebar()" class="lg:hidden text-slate-500 hover:text-slate-800"><i class="fas fa-times"></i></button>
+                </div>
+                <!-- SCROLLABLE SIDEBAR LIST -->
+                <div class="p-4 flex-1 scroll-area">
+                    <div class="mb-4 text-xs font-semibold text-slate-400 uppercase">Literasi Membaca</div>
+                    <div id="nav-literasi" class="grid grid-cols-4 gap-2 mb-6"></div>
+                    
+                    <div class="mb-4 text-xs font-semibold text-slate-400 uppercase">Numerasi</div>
+                    <div id="nav-numerasi" class="grid grid-cols-4 gap-2 pb-4"></div>
+                </div>
+                <div class="p-4 border-t border-slate-200 bg-slate-50 shrink-0">
+                    <button id="btn-submit" onclick="confirmSubmit()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition-colors">
+                        Selesai & Cek Hasil
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Overlay for mobile sidebar -->
+            <div id="sidebar-overlay" onclick="toggleSidebar()" class="absolute inset-0 bg-black bg-opacity-50 z-10 hidden lg:hidden"></div>
+
+            <!-- Content Area -->
+            <main class="flex-1 split-layout w-full">
+                <!-- SCROLLABLE STIMULUS PANE -->
+                <div class="stimulus-pane relative scroll-area">
+                    <div class="absolute top-0 right-0 bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-bl-lg z-10">WACANA STIMULUS</div>
+                    <div id="stimulus-content" class="text-slate-700 leading-relaxed mt-4 pb-8">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+
+                <!-- SCROLLABLE QUESTION PANE -->
+                <div class="question-pane relative flex flex-col scroll-area">
+                    <div class="mb-4 flex justify-between items-center shrink-0">
+                        <span id="question-badge" class="bg-indigo-100 text-indigo-800 text-xs font-bold px-3 py-1 rounded-full">Soal 1</span>
+                        <span id="question-type-badge" class="text-xs font-medium text-slate-500 bg-slate-200 px-2 py-1 rounded">Pilihan Ganda</span>
+                    </div>
+                    
+                    <div id="question-text" class="text-lg font-semibold text-slate-800 mb-6 shrink-0">
+                        <!-- Question text -->
+                    </div>
+
+                    <div id="answer-area" class="flex-1">
+                        <!-- Options / Interactive area -->
+                    </div>
+
+                    <!-- Feedback Area (Hidden during test, shown after submit) -->
+                    <div id="feedback-area" class="hidden mt-8 p-5 rounded-xl border shrink-0">
+                        <div id="feedback-status" class="font-bold mb-2 flex items-center gap-2 text-lg"></div>
+                        <div class="text-sm font-semibold text-slate-700 mb-1">Pembahasan:</div>
+                        <div id="feedback-discussion" class="text-sm text-slate-600 leading-relaxed bg-white p-3 rounded border border-slate-100"></div>
+                    </div>
+
+                    <!-- Navigation Footer -->
+                    <div class="flex justify-between items-center mt-8 pt-4 border-t border-slate-200 shrink-0 pb-4">
+                        <button onclick="navigate(-1)" class="px-5 py-2 rounded border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium transition"><i class="fas fa-chevron-left mr-2"></i> Sebelumnya</button>
+                        <button onclick="navigate(1)" class="px-5 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 font-medium transition">Selanjutnya <i class="fas fa-chevron-right ml-2"></i></button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Result Modal (MUNCUL DI ATAS FULLSCREEN) -->
+    <div id="result-modal" class="hidden absolute inset-0 z-50 bg-slate-900 bg-opacity-75 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all text-center">
+            <div class="bg-blue-600 p-6">
+                <i class="fas fa-award text-5xl text-yellow-300 mb-2"></i>
+                <h2 class="text-2xl font-bold text-white">Hasil Asesmen</h2>
+            </div>
+            <div class="p-8">
+                <p class="text-slate-600 mb-6 text-lg">Atas nama <strong id="res-name"></strong> (<span id="res-class"></span>)</p>
+                <div class="flex justify-center gap-8 mb-8">
+                    <div>
+                        <div class="text-4xl font-black text-blue-600" id="score-literasi">0</div>
+                        <div class="text-sm text-slate-500 font-medium">Skor Literasi</div>
+                    </div>
+                    <div class="w-px bg-slate-200"></div>
+                    <div>
+                        <div class="text-4xl font-black text-emerald-600" id="score-numerasi">0</div>
+                        <div class="text-sm text-slate-500 font-medium">Skor Numerasi</div>
+                    </div>
+                </div>
+                <div class="text-left bg-slate-50 p-4 rounded-lg text-sm text-slate-600 mb-6">
+                    <ul class="space-y-1">
+                        <li><i class="fas fa-check-circle text-emerald-500 mr-2"></i> Total Jawaban Benar: <span id="res-correct" class="font-bold">0</span>/<span id="res-total">40</span></li>
+                        <li><i class="fas fa-exclamation-circle text-blue-500 mr-2"></i> Level Dominan: <span id="res-level" class="font-bold">-</span></li>
+                    </ul>
+                </div>
+                <button onclick="reviewQuiz()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 rounded-lg transition-colors mb-3">
+                    Lihat Pembahasan Lengkap
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Modal (Custom untuk mencegah exit fullscreen) -->
+    <div id="logout-modal" class="hidden absolute inset-0 z-[60] bg-slate-900 bg-opacity-75 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all text-center p-6">
+            <i class="fas fa-exclamation-triangle text-4xl text-amber-500 mb-4"></i>
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Konfirmasi Keluar</h3>
+            <p class="text-slate-600 mb-6 text-sm">Apakah Anda yakin ingin keluar? Seluruh sesi dan jawaban akan di-reset.</p>
+            <div class="flex gap-3">
+                <button onclick="cancelLogout()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-lg transition-colors">Batal</button>
+                <button onclick="confirmLogout()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-lg transition-colors">Ya, Keluar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Confirmation Modal (Custom untuk mencegah exit fullscreen) -->
+    <div id="submit-modal" class="hidden absolute inset-0 z-[60] bg-slate-900 bg-opacity-75 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all text-center p-6">
+            <i class="fas fa-question-circle text-4xl text-blue-500 mb-4"></i>
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Konfirmasi Selesai</h3>
+            <p id="submit-msg" class="text-slate-600 mb-6 text-sm"></p>
+            <div class="flex gap-3">
+                <button onclick="cancelSubmit()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-lg transition-colors">Batal</button>
+                <button onclick="proceedSubmit()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition-colors">Ya, Selesai</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Enforcer Overlay -->
+    <div id="fullscreen-enforcer" class="hidden absolute inset-0 z-[100] bg-slate-900 bg-opacity-95 flex flex-col items-center justify-center p-6 text-center cursor-pointer" onclick="resumeFullscreen()">
+        <i class="fas fa-expand text-5xl text-blue-400 mb-6 animate-bounce"></i>
+        <h2 class="text-2xl font-bold text-white mb-2">Asesmen Sedang Berlangsung</h2>
+        <p class="text-slate-300 text-sm mb-8 max-w-sm leading-relaxed">Anda terdeteksi keluar dari mode layar penuh (Fullscreen). Ketuk tombol di bawah atau di mana saja pada layar untuk kembali dan melanjutkan pengerjaan asesmen.</p>
+        <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl transition-colors shadow-lg shadow-blue-600/30">
+            Kembali ke Layar Penuh
+        </button>
+    </div>
+
+    <!-- Anti-Screenshot / Blur Overlay -->
+    <div id="anti-screenshot-overlay" class="hidden fixed inset-0 z-[110] bg-white flex flex-col items-center justify-center p-6">
+        <div class="text-center">
+            <i class="fas fa-shield-alt text-6xl text-slate-300 mb-4"></i>
+            <h2 class="text-3xl font-bold text-slate-400 mb-2">Tampilan Disembunyikan</h2>
+            <p class="text-slate-500 max-w-md mx-auto">Aktivitas di luar jendela asesmen, pengambilan tangkapan layar (screenshot), atau perpindahan tab terdeteksi. Sistem melindungi kerahasiaan soal. Silakan sentuh layar/fokus kembali untuk melanjutkan.</p>
+        </div>
+    </div>
+
+    <!-- Split-Screen / Resize Enforcer Overlay -->
+    <div id="split-screen-overlay" class="hidden fixed inset-0 z-[120] bg-red-900 flex flex-col items-center justify-center p-6 text-center">
+        <i class="fas fa-mobile-alt text-6xl text-white mb-4 animate-pulse"></i>
+        <h2 class="text-3xl font-bold text-white mb-2">Pelanggaran Layar Terdeteksi</h2>
+        <p class="text-red-200 max-w-md mx-auto mb-6">Aplikasi mendeteksi penggunaan Split-Screen, Multi-Window, atau layar yang diperkecil secara tidak wajar.<br><br>Sistem mewajibkan jendela aplikasi tampil penuh. Silakan kembalikan ukuran layar secara normal tanpa membaginya dengan aplikasi lain untuk melanjutkan pengerjaan.</p>
+    </div>
+
+<script>
+/* ==========================================
+   DATA STIMULUS
+========================================== */
+const stimuli = {
+    literasi: `
+        <h3 class="text-2xl font-black text-slate-800 mb-3 leading-tight">Dampak Psikologis dan Etika Penggunaan AI di Kalangan Remaja</h3>
+        <div class="flex gap-4 text-sm text-slate-500 mb-6 font-medium">
+            <span><i class="far fa-calendar-alt"></i> Oktober 2023</span>
+            <span><i class="fas fa-book-reader"></i> Teks Eksposisi & Riset Perilaku</span>
+        </div>
+        <p class="mb-4 text-justify">Kehadiran Kecerdasan Buatan (AI) seperti <em>ChatGPT</em> dan generator visual mengubah lanskap pendidikan secara masif. Di satu sisi, teknologi ini menawarkan akses instan ke informasi dan menjadi asisten belajar yang adaptif. Namun, sebuah riset yang dilakukan oleh Lembaga Psikologi Pendidikan Nasional (LPPN) pada tahun 2023 terhadap 2.500 siswa SMP-SMA di Indonesia mengungkap fakta yang memicu kekhawatiran baru.</p>
+        <div class="bg-blue-50 p-4 border-l-4 border-blue-500 rounded-r mb-4">
+            <h4 class="font-bold text-blue-800 mb-2">Temuan Riset LPPN (2023):</h4>
+            <ul class="list-disc pl-5 space-y-1 text-blue-900 text-sm">
+                <li><strong>78%</strong> remaja menggunakan AI generatif untuk membantu mengerjakan tugas sekolah (PR).</li>
+                <li><strong>45%</strong> dari pengguna tersebut mengaku menyalin-tempel (<em>copy-paste</em>) jawaban tanpa memverifikasi kebenarannya atau memahaminya.</li>
+                <li>Terdapat penurunan minat baca buku fisik dan artikel panjang sebesar <strong>30%</strong>, di mana remaja lebih menyukai rangkuman instan dari AI.</li>
+                <li><strong>62%</strong> remaja merasa cemas atau tidak percaya diri jika dilarang menggunakan AI saat ujian esai.</li>
+            </ul>
+        </div>
+        <p class="mb-4 text-justify">Secara psikologis, Dr. Haryono, seorang psikolog klinis remaja, menyatakan bahwa kebergantungan ini memicu sindrom <em>Instant Gratification</em> (pemuasan instan). "Otak remaja sedang dalam fase krusial pembentukan sinapsis logika dan pemecahan masalah. Jika AI selalu memberikan jalan pintas, kemampuan metakognitif (berpikir tentang proses berpikir) mereka tidak akan berkembang," tegasnya.</p>
+        <p class="text-justify">Dari sudut pandang etika, fenomena ini menimbulkan dilema. Apakah menggunakan AI untuk menulis esai termasuk plagiarisme? Banyak sekolah belum memiliki pedoman yang jelas mengenai batasan wajar penggunaan AI. Selain itu, maraknya konten rekayasa (<em>deepfake</em>) yang disebarkan remaja tanpa literasi digital yang mumpuni juga berpotensi memicu perundungan siber (<em>cyberbullying</em>).</p>
+    `,
+    literasi2: `
+        <h3 class="text-2xl font-black text-slate-800 mb-3 leading-tight">Potensi Emas dan Ancaman Alam pada Budidaya Ikan Bandeng</h3>
+        <div class="flex gap-4 text-sm text-slate-500 mb-6 font-medium">
+            <span><i class="fas fa-fish"></i> Artikel Agrikultur & Lingkungan</span>
+        </div>
+        <p class="mb-4 text-justify">Ikan Bandeng (<em>Chanos chanos</em>) merupakan salah satu komoditas perikanan unggulan di Indonesia, khususnya di pesisir utara Jawa seperti Gresik dan Lamongan. Bandeng sangat diminati karena rasanya yang gurih serta harganya yang terjangkau. Lebih dari itu, riset gizi menunjukkan bahwa ikan bandeng memiliki kandungan <strong>Omega-3</strong> yang lebih tinggi dibandingkan dengan ikan salmon impor, menjadikannya pilihan sangat sehat untuk kecerdasan otak.</p>
+        <div class="bg-amber-50 p-4 border-l-4 border-amber-500 rounded-r mb-4">
+            <h4 class="font-bold text-amber-800 mb-2">Tantangan Ekologis Petambak (2024):</h4>
+            <p class="text-sm text-amber-900 text-justify">Di balik potensinya, petambak tradisional sedang menghadapi krisis akibat perubahan iklim. Kombinasi antara kenaikan permukaan air laut dan <em>land subsidence</em> (penurunan muka tanah) memicu fenomena <strong>Banjir Rob</strong> yang semakin parah setiap tahunnya. Air pasang laut yang tinggi sering kali melimpas melewati tanggul tambak, menyebabkan ikan bandeng lepas ke laut terbuka sebelum masa panen tiba. Kerugian ditaksir mencapai miliaran rupiah dalam sekali musim rob.</p>
+        </div>
+        <p class="text-justify">Sebagai respons, beberapa kelompok tani nelayan mulai menerapkan adaptasi infrastruktur dengan cara meninggikan tanggul tambak secara gotong royong dan menanam kembali sabuk <em>mangrove</em> di bibir pantai sebagai pemecah ombak alami. Namun, langkah ini membutuhkan biaya dan waktu yang tidak sedikit.</p>
+    `,
+    numerasi: `
+        <h3 class="text-2xl font-black text-slate-800 mb-3 leading-tight">Analisis Efisiensi dan Perbandingan Biaya Transportasi Berkelanjutan</h3>
+        <div class="flex gap-4 text-sm text-slate-500 mb-6 font-medium">
+            <span><i class="fas fa-chart-bar"></i> Data Moda Transportasi Modern</span>
+        </div>
+        <p class="mb-4 text-justify">Pemerintah merencanakan transisi menuju transportasi ramah lingkungan untuk mengurangi emisi karbon. Dua opsi utama yang sedang populer adalah penggunaan Kereta Cepat (berbasis listrik) untuk antarkota, dan Kendaraan Listrik Pribadi (<em>Electric Vehicle/EV</em>). Tabel berikut menyajikan data komparatif operasional kedua moda transportasi tersebut untuk rute perjalanan sepanjang <strong>150 Kilometer</strong>.</p>
+        
+        <div class="overflow-x-auto rounded-lg border border-slate-200 mb-4 shadow-sm">
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                    <tr>
+                        <th class="px-4 py-3 border-b">Parameter Teknis (Rute 150 km)</th>
+                        <th class="px-4 py-3 border-b bg-blue-50 text-blue-800">Kereta Cepat (KC)</th>
+                        <th class="px-4 py-3 border-b bg-emerald-50 text-emerald-800">Mobil Listrik Pribadi (EV)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="bg-white border-b hover:bg-slate-50">
+                        <td class="px-4 py-3 font-medium text-slate-900">Kecepatan Maksimal Operasional</td>
+                        <td class="px-4 py-3">350 km/jam</td>
+                        <td class="px-4 py-3">120 km/jam (di jalan tol)</td>
+                    </tr>
+                    <tr class="bg-slate-50 border-b hover:bg-slate-100">
+                        <td class="px-4 py-3 font-medium text-slate-900">Waktu Tempuh Estimasi (150 km)</td>
+                        <td class="px-4 py-3">30 menit</td>
+                        <td class="px-4 py-3">90 menit (tanpa macet)</td>
+                    </tr>
+                    <tr class="bg-white border-b hover:bg-slate-50">
+                        <td class="px-4 py-3 font-medium text-slate-900">Biaya Perjalanan per Penumpang / Kendaraan</td>
+                        <td class="px-4 py-3">Rp 250.000 / tiket / orang</td>
+                        <td class="px-4 py-3">Rp 45.000 (biaya <i>charging</i> listrik total)</td>
+                    </tr>
+                    <tr class="bg-slate-50 border-b hover:bg-slate-100">
+                        <td class="px-4 py-3 font-medium text-slate-900">Kapasitas Maksimal</td>
+                        <td class="px-4 py-3">600 orang / rangkaian</td>
+                        <td class="px-4 py-3">5 orang / mobil</td>
+                    </tr>
+                    <tr class="bg-white border-b hover:bg-slate-50">
+                        <td class="px-4 py-3 font-medium text-slate-900">Jejak Emisi Karbon per Orang per KM</td>
+                        <td class="px-4 py-3">15 gram CO<sub>2</sub></td>
+                        <td class="px-4 py-3">45 gram CO<sub>2</sub> (Asumsi diisi 1 orang)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-sm text-slate-500 italic mt-2">*Catatan: Jejak emisi karbon EV dihitung berdasarkan bauran energi pembangkit listrik nasional saat ini. Biaya jalan tol (jika ada) diabaikan dalam tabel ini.</p>
+    `,
+    numerasi2: `
+        <h3 class="text-2xl font-black text-slate-800 mb-3 leading-tight">Analisis Tenaga Kerja dan Emisi di Kawasan Industri Gresik</h3>
+        <div class="flex gap-4 text-sm text-slate-500 mb-6 font-medium">
+            <span><i class="fas fa-industry"></i> Data Sektor Manufaktur 2023</span>
+        </div>
+        <p class="mb-4 text-justify">Kabupaten Gresik dikenal sebagai salah satu poros kawasan industri terbesar di Jawa Timur. Pertumbuhan industri memberikan dampak positif berupa penyerapan tenaga kerja yang masif, namun di sisi lain memberikan tantangan lingkungan berupa emisi karbon. Tabel berikut menampilkan data agregat dari tiga sektor industri utama di Gresik pada tahun 2023.</p>
+        
+        <div class="overflow-x-auto rounded-lg border border-slate-200 mb-4 shadow-sm">
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                    <tr>
+                        <th class="px-4 py-3 border-b">Sektor Industri Utama</th>
+                        <th class="px-4 py-3 border-b bg-blue-50">Jumlah Pabrik Aktif</th>
+                        <th class="px-4 py-3 border-b bg-emerald-50">Rata-rata Pekerja per Pabrik</th>
+                        <th class="px-4 py-3 border-b bg-red-50">Total Emisi Karbon (Ton/Tahun)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="bg-white border-b hover:bg-slate-50">
+                        <td class="px-4 py-3 font-bold text-slate-900">Semen & Material Konstruksi</td>
+                        <td class="px-4 py-3">5 Pabrik</td>
+                        <td class="px-4 py-3">1.200 Orang</td>
+                        <td class="px-4 py-3">600.000 Ton</td>
+                    </tr>
+                    <tr class="bg-slate-50 border-b hover:bg-slate-100">
+                        <td class="px-4 py-3 font-bold text-slate-900">Pupuk & Petrokimia</td>
+                        <td class="px-4 py-3">3 Pabrik</td>
+                        <td class="px-4 py-3">2.500 Orang</td>
+                        <td class="px-4 py-3">450.000 Ton</td>
+                    </tr>
+                    <tr class="bg-white border-b hover:bg-slate-50">
+                        <td class="px-4 py-3 font-bold text-slate-900">Pengolahan Kayu & Kertas</td>
+                        <td class="px-4 py-3">10 Pabrik</td>
+                        <td class="px-4 py-3">800 Orang</td>
+                        <td class="px-4 py-3">150.000 Ton</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-sm text-slate-500 italic mt-2">*Catatan: Data emisi merupakan estimasi kasar kawasan operasional industri.</p>
+    `
+};
+
+/* ==========================================
+   DATA SOAL (40 Butir: 1-20 Literasi, 21-40 Numerasi)
+========================================== */
+const questions = [
+    // --- LITERASI (1-15: AI) ---
+    { id: 1, domain: 'literasi', stimulus: 'literasi', type: 'mcq', level: 'L1', text: "Berdasarkan riset LPPN tahun 2023, berapa persentase remaja pengguna AI yang mengaku sekadar menyalin-tempel (copy-paste) tanpa memahami jawabannya?", options: ["30%", "45%", "62%", "78%"], answer: 1, discussion: "Terdapat secara eksplisit pada teks: '45% dari pengguna tersebut mengaku menyalin-tempel jawaban tanpa memverifikasi'." },
+    { id: 2, domain: 'literasi', stimulus: 'literasi', type: 'mcq', level: 'L2', text: "Makna istilah 'Instant Gratification' dalam konteks artikel tersebut mengacu pada...", options: ["Kemampuan otak dalam merespons teknologi secara cepat", "Keinginan mendapatkan kepuasan atau hasil akhir secara instan tanpa proses yang sulit", "Metode pembelajaran adaptif yang diberikan oleh AI", "Sindrom ketakutan tertinggal informasi (FOMO) karena tidak memakai AI"], answer: 1, discussion: "Berdasarkan penjelasan psikolog, 'pemuasan instan' dihubungkan dengan jalan pintas dari AI yang membuat remaja tidak melalui proses metakognitif (berpikir keras)." },
+    { id: 3, domain: 'literasi', stimulus: 'literasi', type: 'mcq', level: 'L2', text: "Apa kekhawatiran utama Dr. Haryono terkait penggunaan AI berlebih oleh remaja?", options: ["Remaja akan kehilangan pekerjaan di masa depan", "Menurunnya kemampuan mengingat rumus matematika", "Terhambatnya perkembangan kemampuan logika dan pemecahan masalah (metakognitif)", "Sekolah akan kesulitan memberikan nilai evaluasi"], answer: 2, discussion: "Dr. Haryono menyatakan 'kemampuan metakognitif (berpikir tentang proses berpikir) mereka tidak akan berkembang' karena selalu diberi jalan pintas." },
+    { id: 4, domain: 'literasi', stimulus: 'literasi', type: 'mcq', level: 'L3', text: "Jika seorang siswa berpendapat, <i>'Saya selalu pakai AI agar nilai saya bagus tanpa harus capek baca buku'</i>. Berdasarkan teks, pandangan ini paling mencerminkan fenomena...", options: ["Kurangnya pedoman etika di sekolah", "Penurunan minat baca (30%) dikombinasikan dengan <i>Instant Gratification</i>", "Efektivitas AI sebagai asisten belajar adaptif", "Peningkatan literasi digital di kalangan pelajar"], answer: 1, discussion: "Pendapat tersebut adalah bukti nyata dampak negatif: menurunnya minat baca dan keinginan mendapat hasil instan (Instant Gratification)." },
+    { id: 5, domain: 'literasi', stimulus: 'literasi', type: 'mcq', level: 'L3', text: "Penulis teks tersebut memiliki tujuan utama untuk...", options: ["Mempromosikan penggunaan ChatGPT di kalangan siswa", "Menuntut pemerintah memblokir semua aplikasi AI generatif", "Memaparkan dampak positif AI dan riset perkembangan otak", "Memberikan peringatan objektif tentang dilema psikologis dan etika akibat AI"], answer: 3, discussion: "Teks memberikan pandangan berimbang (menyebutkan AI sebagai akses instan) namun berfokus pada analisis data riset terkait kekhawatiran psikologis (sindrom instan) dan etika (plagiarisme)." },
+    { id: 6, domain: 'literasi', stimulus: 'literasi', type: 'cmcq', level: 'L1', text: "Pilih pernyataan-pernyataan berikut yang merupakan FAKTA sesuai teks (Bisa pilih lebih dari satu):", options: ["Riset LPPN dilakukan terhadap 2.500 mahasiswa perguruan tinggi.", "78% remaja menggunakan AI untuk membantu mengerjakan tugas sekolah.", "Maraknya konten deepfake berpotensi memicu perundungan siber.", "Semua sekolah di Indonesia telah memiliki pedoman penggunaan AI yang jelas."], answer: [1, 2], discussion: "Riset dilakukan pada siswa SMP-SMA, bukan mahasiswa. Sekolah-sekolah BELUM memiliki pedoman yang jelas. Opsi 2 dan 3 benar sesuai teks." },
+    { id: 7, domain: 'literasi', stimulus: 'literasi', type: 'cmcq', level: 'L2', text: "Berdasarkan artikel, dampak negatif penggunaan AI di kalangan remaja mencakup aspek apa saja?", options: ["Peningkatan daya ingat verbal", "Dilema etika seperti plagiarisme", "Ketergantungan psikologis yang memicu kecemasan saat tidak memakai AI", "Perkembangan sinapsis logika menjadi lebih cepat"], answer: [1, 2], discussion: "Teks menyebutkan masalah etika (plagiarisme, deepfake) dan ketergantungan (62% cemas jika dilarang memakai AI). Opsi 1 dan 4 justru kebalikan dari fakta teks." },
+    { id: 8, domain: 'literasi', stimulus: 'literasi', type: 'cmcq', level: 'L2', text: "Manakah argumen yang mendukung pendapat bahwa sekolah perlu segera membuat regulasi tentang AI?", options: ["Banyak remaja menyalin-tempel tanpa paham isi materi.", "AI sering menyebarkan virus komputer ke perangkat sekolah.", "Adanya kebingungan batas wajar antara mencari referensi dan plagiarisme.", "AI membuat biaya operasional sekolah meningkat drastis."], answer: [0, 2], discussion: "Teks menekankan fenomena menyalin instan (45%) dan dilema etika/plagiarisme karena belum ada batasan wajar, menuntut adanya regulasi." },
+    { id: 9, domain: 'literasi', stimulus: 'literasi', type: 'cmcq', level: 'L3', text: "Seandainya data penurunan minat baca (30%) diabaikan, potensi masalah jangka panjang apa yang tetap terjadi sesuai teks?", options: ["Gangguan kesehatan mata karena radiasi.", "Mandeknya kemampuan metakognitif (berpikir pemecahan masalah).", "Risiko masalah etika terkait penyebaran hoaks/deepfake.", "Remaja kehilangan kemampuan bersosialisasi secara langsung."], answer: [1, 2], discussion: "Teks secara khusus menyoroti masalah psikologis (kemampuan metakognitif) dan masalah etika/literasi digital (deepfake, cyberbullying). Masalah mata/sosialisasi tidak dibahas." },
+    { id: 10, domain: 'literasi', stimulus: 'literasi', type: 'cmcq', level: 'L3', text: "Berikut ini solusi logis yang sesuai dengan semangat artikel untuk mengatasi masalah 'Instant Gratification' pada remaja:", options: ["Mewajibkan siswa menulis esai secara langsung di kelas dengan tulisan tangan tanpa internet.", "Membiarkan siswa memakai AI asal mencantumkan prompt yang digunakan.", "Guru mengubah metode evaluasi menjadi diskusi lisan yang menguji pemahaman mendalam.", "Menghukum penjara bagi remaja yang menggunakan ChatGPT."], answer: [0, 2], discussion: "Evaluasi tulisan tangan di kelas atau diskusi lisan secara langsung memaksa siswa melalui proses metakognitif dan berpikir mandiri, memotong kebergantungan pada AI instan." },
+    { id: 11, domain: 'literasi', stimulus: 'literasi', type: 'tf', level: 'L1', text: "Menurut Dr. Haryono, AI dapat membantu mempercepat pembentukan sinapsis logika di otak remaja saat ini.", options: ["Benar", "Salah"], answer: 1, discussion: "Salah. Dr. Haryono justru menyatakan jika sering pakai AI, kemampuan logika/metakognitif TIDAK akan berkembang." },
+    { id: 12, domain: 'literasi', stimulus: 'literasi', type: 'tf', level: 'L2', text: "Dapat disimpulkan bahwa lebih dari setengah responden riset LPPN merasa bergantung pada AI generatif saat menghadapi ujian esai.", options: ["Benar", "Salah"], answer: 0, discussion: "Benar. Teks menyebut '62% remaja merasa cemas/tidak percaya diri jika dilarang memakai AI', angka ini lebih dari setengah (50%)." },
+    { id: 13, domain: 'literasi', stimulus: 'literasi', type: 'tf', level: 'L3', text: "Sikap penulis dalam artikel tersebut cenderung menolak seluruh bentuk kemajuan teknologi di ranah pendidikan.", options: ["Benar", "Salah"], answer: 1, discussion: "Salah. Penulis mengakui AI 'menawarkan akses instan dan menjadi asisten belajar adaptif'. Penulis bersifat kritis, bukan menolak total." },
+    { id: 14, domain: 'literasi', stimulus: 'literasi', type: 'match', level: 'L2', text: "Pasangkan persentase data riset berikut dengan temuan yang tepat berdasarkan teks!", left: ["78%", "45%", "62%"], right: ["Merasa cemas jika dilarang memakai AI", "Penurunan minat baca buku fisik", "Menggunakan AI untuk tugas sekolah", "Menyalin-tempel tanpa verifikasi"], answer: { "0": "2", "1": "3", "2": "0" }, discussion: "78% untuk tugas sekolah; 45% untuk copy-paste; 62% untuk rasa cemas." },
+    { id: 15, domain: 'literasi', stimulus: 'literasi', type: 'match', level: 'L3', text: "Pasangkan istilah atau konsep dengan konteks dampaknya pada artikel!", left: ["Deepfake", "Instant Gratification", "Metakognitif"], right: ["Kemampuan berpikir tentang proses pemecahan masalah", "Potensi perundungan siber (cyberbullying)", "Keinginan mendapat hasil tanpa melalui proses panjang"], answer: { "0": "1", "1": "2", "2": "0" }, discussion: "Deepfake berkaitan dengan cyberbullying. Instant gratification adalah hasil instan. Metakognitif adalah proses berpikir." },
+    // --- LITERASI (16-20: Bandeng) ---
+    { id: 16, domain: 'literasi', stimulus: 'literasi2', type: 'mcq', level: 'L1', text: "Berdasarkan artikel, keunggulan gizi apa yang membuat ikan bandeng menjadi pilihan sehat untuk otak?", options: ["Kandungan protein yang lebih tinggi dari daging sapi", "Tingginya kandungan Omega-3 yang bahkan mengalahkan ikan salmon", "Memiliki tulang lunak yang kaya kalsium", "Bebas dari kolesterol jahat sepenuhnya"], answer: 1, discussion: "Disebutkan eksplisit di teks: 'ikan bandeng memiliki kandungan Omega-3 yang lebih tinggi dibandingkan dengan ikan salmon impor'." },
+    { id: 17, domain: 'literasi', stimulus: 'literasi2', type: 'cmcq', level: 'L2', text: "Manakah dari pernyataan berikut yang merupakan penyebab utama terjadinya fenomena Banjir Rob di area tambak pesisir utara Jawa? (Pilih jawaban yang benar)", options: ["Tingginya curah hujan di hulu sungai", "Kenaikan permukaan air laut akibat perubahan iklim", "Penurunan muka tanah (land subsidence)", "Banyaknya sampah plastik yang menyumbat tanggul"], answer: [1, 2], discussion: "Teks menyebutkan: 'Kombinasi antara kenaikan permukaan air laut dan land subsidence (penurunan muka tanah) memicu fenomena Banjir Rob'." },
+    { id: 18, domain: 'literasi', stimulus: 'literasi2', type: 'tf', level: 'L2', text: "Adaptasi menanam sabuk mangrove di bibir pantai bertujuan untuk mencegah penurunan muka tanah secara langsung.", options: ["Benar", "Salah"], answer: 1, discussion: "Salah. Mangrove berfungsi sebagai 'pemecah ombak alami', bukan untuk secara langsung menghentikan penurunan muka tanah (land subsidence)." },
+    { id: 19, domain: 'literasi', stimulus: 'literasi2', type: 'match', level: 'L1', text: "Jodohkan istilah berikut dengan penjelasannya sesuai teks!", left: ["Omega-3", "Banjir Rob", "Mangrove"], right: ["Kandungan gizi tinggi untuk kecerdasan otak", "Fenomena air pasang laut yang melimpas ke daratan", "Tanaman pemecah ombak alami di bibir pantai", "Proses penurunan permukaan daratan"], answer: { "0": "0", "1": "1", "2": "2" }, discussion: "Omega-3 adalah gizi untuk otak. Banjir rob adalah limpasan air laut. Mangrove adalah pemecah ombak alami." },
+    { id: 20, domain: 'literasi', stimulus: 'literasi2', type: 'mcq', level: 'L3', text: "Jika seorang petambak memiliki modal terbatas dan harus memilih satu adaptasi tercepat untuk menyelamatkan bandengnya bulan depan dari musim pasang laut, langkah paling logis berdasarkan masalah di teks adalah...", options: ["Membeli pakan bandeng berkualitas tinggi agar cepat panen", "Menanam bibit mangrove dan menunggu tumbuh besar", "Melakukan peninggian fisik tanggul tambak segera", "Mengganti jenis ikan bandeng dengan ikan air tawar"], answer: 2, discussion: "Mangrove butuh waktu bertahun-tahun untuk tumbuh berfungsi. Solusi tercepat mencegah 'air pasang melimpas melewati tanggul' adalah meninggikan fisik tanggul tersebut." },
+
+    // --- NUMERASI (21-35: EV) ---
+    { id: 21, domain: 'numerasi', stimulus: 'numerasi', type: 'mcq', level: 'L1', text: "Berapa lama estimasi waktu yang dihemat jika seseorang bepergian sejauh 150 km menggunakan Kereta Cepat dibandingkan Mobil Listrik Pribadi?", options: ["30 menit", "45 menit", "60 menit", "90 menit"], answer: 2, discussion: "Waktu tempuh EV = 90 menit. Kereta Cepat = 30 menit. Selisih/penghematan waktu = 90 - 30 = 60 menit." },
+    { id: 22, domain: 'numerasi', stimulus: 'numerasi', type: 'mcq', level: 'L2', text: "Rasio (perbandingan) kecepatan maksimal operasional antara Mobil Listrik Pribadi dengan Kereta Cepat adalah...", options: ["1 : 2", "1 : 3", "12 : 35", "35 : 12"], answer: 2, discussion: "Kecepatan EV = 120, KC = 350. Rasio EV:KC = 120 : 350. Disederhanakan (dibagi 10) menjadi 12 : 35." },
+    { id: 23, domain: 'numerasi', stimulus: 'numerasi', type: 'mcq', level: 'L2', text: "Jika sekeluarga terdiri dari ayah, ibu, dan 2 anak (total 4 orang) bepergian 150 km, moda transportasi manakah yang biaya totalnya lebih murah, dan berapa biayanya?", options: ["Kereta Cepat dengan biaya total Rp 250.000", "Kereta Cepat dengan biaya total Rp 1.000.000", "Mobil Listrik dengan biaya total Rp 45.000", "Mobil Listrik dengan biaya total Rp 180.000"], answer: 2, discussion: "Biaya KC untuk 4 orang = 4 x Rp 250.000 = Rp 1.000.000. Biaya EV dihitung per kendaraan (1 mobil cukup untuk 5 org) = Rp 45.000 total. EV jauh lebih murah." },
+    { id: 24, domain: 'numerasi', stimulus: 'numerasi', type: 'mcq', level: 'L3', text: "Berdasarkan data, jejak emisi karbon EV per orang per km tertulis '45 gram (Asumsi diisi 1 orang)'. Jika mobil tersebut dinaiki maksimal secara penuh (5 orang), berapakah jejak karbon efektif EV per orang per km?", options: ["9 gram", "15 gram", "45 gram", "225 gram"], answer: 0, discussion: "Emisi total mobil per km = 45 gram (karena jika 1 orang = 45g/orang). Jika dinaiki 5 orang, emisi dibagi rata = 45 / 5 = 9 gram/orang per km." },
+    { id: 25, domain: 'numerasi', stimulus: 'numerasi', type: 'mcq', level: 'L3', text: "Seorang pebisnis menilai waktunya seharga Rp 150.000 per jam. Jika ia bepergian sendirian sejauh 150 km, pilihan transportasi mana yang secara nilai ekonomi (Biaya + Nilai Waktu) paling menguntungkan?", options: ["Kereta Cepat, karena nilainya setara Rp 325.000", "Kereta Cepat, karena nilainya setara Rp 250.000", "Mobil Listrik, karena nilainya setara Rp 270.000", "Mobil Listrik, karena nilainya setara Rp 45.000"], answer: 2, discussion: "Kereta (30mnt = 0,5 jam): Biaya tiket (250k) + Nilai Waktu (0,5 x 150k = 75k) = 325.000. \nEV (90mnt = 1,5 jam): Biaya listrik (45k) + Nilai Waktu (1,5 x 150k = 225k) = 270.000. EV tetap lebih menguntungkan secara nilai." },
+    { id: 26, domain: 'numerasi', stimulus: 'numerasi', type: 'cmcq', level: 'L1', text: "Manakah pernyataan perhitungan biaya yang BENAR berdasarkan tabel? (Bisa pilih lebih dari satu)", options: ["Biaya tiket Kereta Cepat untuk 3 orang adalah Rp 750.000.", "Biaya pengisian daya Mobil Listrik untuk jarak 300 km adalah Rp 90.000.", "Biaya Kereta Cepat selalu lebih murah dibandingkan Mobil Listrik, berapapun jumlah penumpangnya.", "Biaya operasional Mobil Listrik dihitung per kepala/penumpang."], answer: [0, 1], discussion: "KC untuk 3 orang = 3 x 250k = 750k (Benar). EV untuk 300km (2x lipat dari 150km) = 2 x 45k = 90k (Benar). Opsi 3 & 4 salah." },
+    { id: 27, domain: 'numerasi', stimulus: 'numerasi', type: 'cmcq', level: 'L2', text: "Jika ditinjau dari aspek keramahan lingkungan (Emisi CO2) per jarak 150 km:", options: ["Seorang yang bepergian sendiri dengan EV menghasilkan total 6.750 gram CO2.", "Satu penumpang Kereta Cepat menghasilkan total 2.250 gram CO2.", "EV akan menjadi lebih ramah lingkungan per penumpang jika diisi lebih dari 3 orang dibanding KC.", "Kereta cepat sama sekali tidak menghasilkan polusi gas rumah kaca."], answer: [0, 1, 2], discussion: "EV 1 orang (150km) = 150 x 45g = 6.750g (Benar). KC 1 orang = 150 x 15g = 2.250g (Benar). EV 4 orang = 45/4=11.25g per orang (<15g, Benar). KC tetap hasilkan CO2 (listrik), tidak nol." },
+    { id: 28, domain: 'numerasi', stimulus: 'numerasi', type: 'cmcq', level: 'L2', text: "Terkait kapasitas transportasi, pernyataan mana yang tepat?", options: ["Kapasitas satu rangkaian Kereta Cepat setara dengan 120 buah Mobil Listrik yang terisi penuh.", "Untuk mengangkut 600 orang, dibutuhkan setidaknya 150 Mobil Listrik berpenumpang penuh.", "Kereta cepat lebih efisien dalam ruang jalan per penumpang dibandingkan EV.", "Mobil Listrik memiliki fleksibilitas rute yang lebih kaku dibanding kereta cepat."], answer: [0, 2], discussion: "600 orang / 5 orang per EV = 120 EV (Opsi 1 Benar, Opsi 2 Salah). Transportasi massal (KC) jelas lebih efisien dalam kepadatan jalan raya. EV lebih fleksibel (Opsi 4 terbalik)." },
+    { id: 29, domain: 'numerasi', stimulus: 'numerasi', type: 'cmcq', level: 'L3', text: "Dua orang teman, Budi dan Andi, ingin ke kota sebelah berjarak 150km. Budi ingin naik KC, Andi ingin patungan naik EV milik Andi. Jika mereka memutuskan naik EV berdua...", options: ["Mereka masing-masing berhemat Rp 227.500 dibanding naik KC.", "Total emisi karbon gabungan mereka adalah 13.500 gram CO2.", "Waktu yang terbuang lebih lama 60 menit dibanding naik KC.", "Emisi karbon per orang mereka adalah 22,5 gram per km."], answer: [0, 2, 3], discussion: "EV berdua: Biaya 45k patungan (22,5k per orang). KC: 250k. Hemat = 250k - 22,5k = 227.500 (Benar). Emisi EV tetap 45g/km per mobil, total emisi berdua (150km) = 45 x 150 = 6.750g (Opsi 2 Salah). Waktu selisih 60 mnt (Benar). Emisi per orang = 45/2 = 22,5 g/km (Benar)." },
+    { id: 30, domain: 'numerasi', stimulus: 'numerasi', type: 'cmcq', level: 'L3', text: "Asumsikan tiket KC didiskon 20% khusus pelajar. Seorang rombongan pelajar 5 orang mempertimbangkan KC (dengan diskon) vs menyewa EV yang memakan biaya listrik Rp 45.000 + biaya sewa mobil Rp 300.000. Mana analisis yang benar?", options: ["Harga tiket KC pelajar menjadi Rp 200.000 per orang.", "Total biaya KC untuk 5 pelajar adalah Rp 1.000.000.", "Total pengeluaran jika menggunakan EV sewaan adalah Rp 345.000.", "Naik EV sewaan lebih mahal daripada naik KC berlima."], answer: [0, 1, 2], discussion: "Diskon 20% dari 250k = 50k. Harga jadi 200k (Benar). 5 x 200k = 1.000.000 (Benar). EV = 300k sewa + 45k listrik = 345k (Benar). EV tetap jauh lebih murah (345k vs 1.000k), opsi 4 salah." },
+    { id: 31, domain: 'numerasi', stimulus: 'numerasi', type: 'tf', level: 'L1', text: "Jika seseorang rutin pulang pergi (PP) kota tersebut (total 300 km) menggunakan EV sendirian, maka total biaya listrik yang ia keluarkan dalam sehari adalah Rp 90.000.", options: ["Benar", "Salah"], answer: 0, discussion: "Benar. Jarak PP = 150km x 2. Biaya = Rp 45.000 x 2 = Rp 90.000." },
+    { id: 32, domain: 'numerasi', stimulus: 'numerasi', type: 'tf', level: 'L2', text: "Berdasarkan rasio emisi, Kereta Cepat selalu lebih ramah lingkungan (CO2/orang/km lebih kecil) dibanding EV dalam kondisi apa pun (termasuk saat EV diisi penuh penumpang).", options: ["Benar", "Salah"], answer: 1, discussion: "Salah. Jika EV diisi penuh (5 orang), emisinya 45/5 = 9 gram/orang. Ini LEBIH KECIL (lebih ramah) dibanding Kereta Cepat yang 15 gram/orang." },
+    { id: 33, domain: 'numerasi', stimulus: 'numerasi', type: 'match', level: 'L1', text: "Pasangkan data metrik di sebelah kiri dengan nilai yang sesuai untuk Kereta Cepat di sebelah kanan!", left: ["Kecepatan", "Waktu tempuh 150km", "Emisi Karbon"], right: ["30 menit", "15 gram / orang / km", "120 km/jam", "350 km/jam"], answer: { "0": "3", "1": "0", "2": "1" }, discussion: "Kecepatan KC 350 km/jam. Waktu tempuh 30 menit. Emisi 15 gram." },
+    { id: 34, domain: 'numerasi', stimulus: 'numerasi', type: 'match', level: 'L2', text: "Hitung dan pasangkan moda transportasi / skenario dengan total emisi CO2 yang dihasilkan untuk jarak 150km!", left: ["1 penumpang naik Kereta Cepat", "1 mobil EV berisi 1 orang", "1 mobil EV berisi 3 orang"], right: ["6.750 gram (Total Emisi Kendaraan)", "2.250 gram", "10.500 gram"], answer: { "0": "1", "1": "0", "2": "0" }, discussion: "KC 1 org: 15g x 150km = 2.250 gram. EV 1 org maupun 3 org emisinya tetap dihitung per mobil yaitu 45g x 150km = 6.750 gram total." },
+    { id: 35, domain: 'numerasi', stimulus: 'numerasi', type: 'match', level: 'L3', text: "Sebuah perusahaan memiliki anggaran perjalanan maksimal Rp 500.000. Pasangkan skenario perjalanan di sebelah kiri dengan status kelayakannya (Bisa/Tidak Bisa) di sebelah kanan!", left: ["2 orang naik Kereta Cepat", "3 orang naik Kereta Cepat", "Sewa 1 mobil EV (Rp 250rb) + Listrik"], right: ["Bisa (Sisa Anggaran 205rb)", "Tidak Bisa (Defisit 250rb)", "Bisa (Anggaran Pas)"], answer: { "0": "2", "1": "1", "2": "0" }, discussion: "2 org KC (500k) -> Anggaran Pas. 3 org KC (750k) -> Defisit 250k. Sewa EV+Listrik (250k+45k=295k) -> Sisa 205k." },
+    // --- NUMERASI (36-40: Industri Gresik) ---
+    { id: 36, domain: 'numerasi', stimulus: 'numerasi2', type: 'mcq', level: 'L1', text: "Sektor industri manakah yang menyerap total tenaga kerja (jumlah pekerja seluruh pabrik) paling banyak di Gresik?", options: ["Semen & Material Konstruksi", "Pupuk & Petrokimia", "Pengolahan Kayu & Kertas", "Semua sektor menyerap tenaga kerja sama besar"], answer: 2, discussion: "Semen = 5 x 1.200 = 6.000. Pupuk = 3 x 2.500 = 7.500. Kayu = 10 x 800 = 8.000. Jadi, Pengolahan Kayu & Kertas menyerap pekerja paling banyak (8.000 orang)." },
+    { id: 37, domain: 'numerasi', stimulus: 'numerasi2', type: 'cmcq', level: 'L2', text: "Pilih pernyataan-pernyataan berikut yang hitungannya BENAR berdasarkan tabel! (Bisa pilih lebih dari satu)", options: ["Total keseluruhan pekerja di ketiga sektor tersebut adalah 21.500 orang.", "Rata-rata emisi satu pabrik Semen adalah 120.000 Ton/Tahun.", "Pabrik Pupuk & Petrokimia menyumbang total emisi terbesar dari ketiga sektor.", "Terdapat total 18 pabrik berskala besar pada agregat data tersebut."], answer: [0, 1, 3], discussion: "Total pekerja = 6000 + 7500 + 8000 = 21.500 (Benar). Emisi 1 pabrik semen = 600.000 / 5 = 120.000 Ton (Benar). Total emisi semen terbesar, bukan pupuk (Opsi 3 Salah). Total pabrik = 5 + 3 + 10 = 18 (Benar)." },
+    { id: 38, domain: 'numerasi', stimulus: 'numerasi2', type: 'tf', level: 'L2', text: "Jika dihitung rasio Emisi Karbon per Pekerja (Total Emisi dibagi Total Pekerja Sektor), Sektor Pupuk & Petrokimia memiliki rasio (jejak karbon pekerja) yang lebih tinggi dibandingkan Sektor Semen.", options: ["Benar", "Salah"], answer: 1, discussion: "Salah. Rasio Pupuk = 450.000 / 7.500 = 60 ton/pekerja. Rasio Semen = 600.000 / 6.000 = 100 ton/pekerja. Semen jauh lebih tinggi." },
+    { id: 39, domain: 'numerasi', stimulus: 'numerasi2', type: 'match', level: 'L2', text: "Pasangkan Sektor Industri dengan Total Pekerjanya!", left: ["Semen & Material Konstruksi", "Pupuk & Petrokimia", "Pengolahan Kayu & Kertas"], right: ["8.000 Orang", "6.000 Orang", "7.500 Orang"], answer: { "0": "1", "1": "2", "2": "0" }, discussion: "Semen (5x1200=6000). Pupuk (3x2500=7500). Kayu (10x800=8000)." },
+    { id: 40, domain: 'numerasi', stimulus: 'numerasi2', type: 'mcq', level: 'L3', text: "Pemda Gresik menargetkan 'Green Industry' dengan aturan total agregat emisi ketiga sektor tersebut harus diturunkan menjadi maksimal 1.000.000 Ton/Tahun. Berapa persentase pengurangan total emisi saat ini yang harus dilakukan untuk mencapai target tersebut?", options: ["Sekitar 10%", "Sekitar 16,7%", "Sekitar 20%", "Sekitar 33,3%"], answer: 1, discussion: "Total emisi awal = 600.000 + 450.000 + 150.000 = 1.200.000 Ton. Target = 1.000.000 Ton. Penurunan = 200.000 Ton. Persentase = (200.000 / 1.200.000) x 100% = 1/6 x 100% = 16,666...% (Sekitar 16,7%)." }
+];
+
+/* ==========================================
+   APP STATE & LOGIC
+========================================== */
+let currentState = {
+    student: { name: '', class: '' },
+    currentIndex: 0,
+    answers: {},
+    submitted: false,
+    isLoggedIn: false
+};
+
+// Timer Variables (120 Menit = 7200 detik)
+const TOTAL_TIME = 120 * 60; 
+let timeRemaining = TOTAL_TIME;
+let timerInterval = null;
+
+// Validasi Form Login
+function validateLogin() {
+    const name = document.getElementById('student-name').value.trim();
+    const kelas = document.getElementById('student-class').value;
+    const btnStart = document.getElementById('btn-start');
+    
+    if (name && kelas) {
+        btnStart.disabled = false;
+    } else {
+        btnStart.disabled = true;
+    }
+}
+
+// Initialization
+function startQuiz() {
+    const name = document.getElementById('student-name').value.trim();
+    const kelas = document.getElementById('student-class').value;
+    
+    if (!name || !kelas) {
+        alert("Mohon lengkapi Nama dan Kelas terlebih dahulu.");
+        return;
+    }
+    
+    // Memicu mode Fullscreen
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(err => console.log(err));
+    } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+    }
+    
+    currentState.student.name = name;
+    currentState.student.class = kelas;
+    currentState.isLoggedIn = true;
+    document.getElementById('display-name').textContent = `${name} (${kelas})`;
+
+    // Manipulasi History untuk menjebak tombol back di HP
+    history.pushState(null, document.title, location.href);
+    
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('hidden');
+    document.getElementById('app-screen').classList.add('flex');
+    
+    // Start Timer Display
+    document.getElementById('timer-display').classList.remove('hidden');
+    document.getElementById('timer-display').classList.add('flex');
+    
+    buildSidebar();
+    loadQuestion(0);
+    startTimer();
+}
+
+// Log Out Modal Triggers
+function logout() {
+    document.getElementById('logout-modal').classList.remove('hidden');
+}
+
+function cancelLogout() {
+    document.getElementById('logout-modal').classList.add('hidden');
+}
+
+// Log Out & Reset Function (Satu-satunya cara keluar Fullscreen)
+function confirmLogout() {
+    document.getElementById('logout-modal').classList.add('hidden');
+    
+    // Keluar dari Fullscreen jika ada
+    if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+        if (document.exitFullscreen) {
+            document.exitFullscreen().catch(err => console.log(err));
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+    }
+
+    // Hentikan dan reset Timer
+    if (timerInterval) clearInterval(timerInterval);
+    timeRemaining = TOTAL_TIME;
+
+    // Reset State App
+    currentState = {
+        student: { name: '', class: '' },
+        currentIndex: 0,
+        answers: {},
+        submitted: false,
+        isLoggedIn: false
+    };
+
+    // Reset Formulir & UI
+    document.getElementById('student-name').value = '';
+    document.getElementById('student-class').value = '';
+    validateLogin(); 
+    
+    document.getElementById('app-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('flex');
+    document.getElementById('result-modal').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+    
+    // Kembalikan tombol submit yang disembunyikan waktu review
+    document.getElementById('btn-submit').classList.remove('hidden');
+    
+    // Kembalikan tampilan default Timer
+    const timerEl = document.getElementById('timer-display');
+    timerEl.classList.add('hidden');
+    timerEl.classList.remove('bg-red-600', 'text-white', 'border-red-700', 'animate-pulse');
+    timerEl.classList.add('bg-slate-100', 'text-slate-700', 'border-slate-200');
+}
+
+function startTimer() {
+    updateTimerUI();
+    timerInterval = setInterval(() => {
+        timeRemaining--;
+        updateTimerUI();
+        
+        // Kumpul paksa saat waktu habis
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            alert("Waktu Habis! Asesmen Anda dikumpulkan secara otomatis.");
+            calculateScore(); 
+        }
+    }, 1000);
+}
+
+function updateTimerUI() {
+    const h = Math.floor(timeRemaining / 3600).toString().padStart(2, '0');
+    const m = Math.floor((timeRemaining % 3600) / 60).toString().padStart(2, '0');
+    const s = (timeRemaining % 60).toString().padStart(2, '0');
+    
+    document.getElementById('time-remaining').textContent = `${h}:${m}:${s}`;
+    
+    if (timeRemaining < 300 && timeRemaining > 0) {
+        const timerEl = document.getElementById('timer-display');
+        timerEl.classList.remove('bg-slate-100', 'text-slate-700', 'border-slate-200');
+        timerEl.classList.add('bg-red-600', 'text-white', 'border-red-700', 'animate-pulse');
+    }
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    sidebar.classList.toggle('-translate-x-full');
+    overlay.classList.toggle('hidden');
+}
+
+function buildSidebar() {
+    const litContainer = document.getElementById('nav-literasi');
+    const numContainer = document.getElementById('nav-numerasi');
+    litContainer.innerHTML = '';
+    numContainer.innerHTML = '';
+
+    questions.forEach((q, idx) => {
+        const btn = document.createElement('button');
+        btn.id = `nav-btn-${idx}`;
+        btn.className = `w-full aspect-square rounded-md font-medium text-sm border border-slate-200 transition flex items-center justify-center hover:bg-slate-100 ${currentState.answers[q.id] !== undefined ? 'bg-blue-100 text-blue-700 border-blue-300' : 'text-slate-600'}`;
+        btn.textContent = idx + 1;
+        btn.onclick = () => {
+            if(window.innerWidth < 1024) toggleSidebar();
+            loadQuestion(idx);
+        };
+        
+        if (q.domain === 'literasi') litContainer.appendChild(btn);
+        else numContainer.appendChild(btn);
+    });
+}
+
+function updateSidebarUI() {
+    questions.forEach((q, idx) => {
+        const btn = document.getElementById(`nav-btn-${idx}`);
+        let classes = 'w-full aspect-square rounded-md font-medium text-sm border transition flex items-center justify-center ';
+        
+        if (currentState.submitted) {
+            const isCorrect = checkAnswerCorrectness(q.id);
+            if (isCorrect) classes += 'bg-emerald-500 text-white border-emerald-600 shadow-sm';
+            else classes += 'bg-red-500 text-white border-red-600 shadow-sm';
+        } else {
+            if (idx === currentState.currentIndex) {
+                classes += 'bg-blue-600 text-white border-blue-700 shadow-sm';
+            } else if (currentState.answers[q.id] !== undefined) {
+                classes += 'bg-blue-50 text-blue-700 border-blue-300';
+            } else {
+                classes += 'border-slate-200 text-slate-600 hover:bg-slate-100';
+            }
+        }
+        btn.className = classes;
+    });
+}
+
+function loadQuestion(index) {
+    if (index < 0 || index >= questions.length) return;
+    currentState.currentIndex = index;
+    const q = questions[index];
+    
+    const stimulusKey = q.stimulus || q.domain;
+    document.getElementById('stimulus-content').innerHTML = stimuli[stimulusKey];
+    
+    document.getElementById('question-badge').textContent = `Soal ${index + 1} / ${questions.length}`;
+    let typeLabel = "Pilihan Ganda";
+    if (q.type === 'cmcq') typeLabel = "Pilihan Ganda Kompleks";
+    if (q.type === 'tf') typeLabel = "Benar atau Salah";
+    if (q.type === 'match') typeLabel = "Menjodohkan (Geser)";
+    
+    let levelLabel = q.level === 'L3' ? '<span class="ml-2 text-red-600 font-bold"><i class="fas fa-fire"></i> HOTS</span>' : '';
+    document.getElementById('question-type-badge').innerHTML = `${typeLabel} ${levelLabel}`;
+    document.getElementById('question-text').innerHTML = q.text;
+    
+    const ansArea = document.getElementById('answer-area');
+    ansArea.innerHTML = '';
+
+    if (q.type === 'mcq' || q.type === 'tf') renderMCQ(q, ansArea);
+    else if (q.type === 'cmcq') renderCMCQ(q, ansArea);
+    else if (q.type === 'match') renderMatch(q, ansArea);
+
+    const feedbackArea = document.getElementById('feedback-area');
+    if (currentState.submitted) {
+        feedbackArea.classList.remove('hidden');
+        const isCorrect = checkAnswerCorrectness(q.id);
+        const fbStatus = document.getElementById('feedback-status');
+        if (isCorrect) {
+            feedbackArea.className = "mt-8 p-5 rounded-xl border border-emerald-200 bg-emerald-50 shrink-0";
+            fbStatus.innerHTML = '<i class="fas fa-check-circle text-emerald-500"></i> <span class="text-emerald-700">Jawaban Tepat</span>';
+        } else {
+            feedbackArea.className = "mt-8 p-5 rounded-xl border border-red-200 bg-red-50 shrink-0";
+            fbStatus.innerHTML = '<i class="fas fa-times-circle text-red-500"></i> <span class="text-red-700">Jawaban Kurang Tepat</span>';
+        }
+        document.getElementById('feedback-discussion').innerHTML = q.discussion;
+    } else {
+        feedbackArea.classList.add('hidden');
+    }
+
+    updateSidebarUI();
+}
+
+function navigate(dir) {
+    loadQuestion(currentState.currentIndex + dir);
+}
+
+function renderMCQ(q, container) {
+    q.options.forEach((opt, idx) => {
+        const label = document.createElement('label');
+        let classes = 'option-label ';
+        
+        const isChecked = currentState.answers[q.id] === idx;
+        
+        if (currentState.submitted) {
+            const isRightAns = q.answer === idx;
+            if (isRightAns) classes += 'correct-ans ';
+            else if (isChecked && !isRightAns) classes += 'wrong-ans ';
+            else classes += 'opacity-50 ';
+        }
+
+        label.className = classes;
+        
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = `q-${q.id}`;
+        input.className = 'option-input';
+        input.checked = isChecked;
+        input.disabled = currentState.submitted;
+        input.onchange = () => {
+            if (!currentState.submitted) {
+                currentState.answers[q.id] = idx;
+                updateSidebarUI();
+            }
+        };
+        
+        const span = document.createElement('span');
+        span.className = 'text-slate-700 leading-snug';
+        span.innerHTML = opt;
+        
+        label.appendChild(input);
+        label.appendChild(span);
+        container.appendChild(label);
+    });
+}
+
+function renderCMCQ(q, container) {
+    const note = document.createElement('div');
+    note.className = 'text-xs text-blue-600 mb-3 bg-blue-50 p-2 rounded shrink-0';
+    note.innerHTML = '<i class="fas fa-info-circle mr-1"></i> Anda dapat memilih lebih dari satu jawaban.';
+    container.appendChild(note);
+
+    const currentAnswers = currentState.answers[q.id] || [];
+
+    q.options.forEach((opt, idx) => {
+        const label = document.createElement('label');
+        let classes = 'option-label ';
+        
+        const isChecked = currentAnswers.includes(idx);
+        
+        if (currentState.submitted) {
+            const isRightAns = q.answer.includes(idx);
+            if (isRightAns) classes += 'correct-ans ';
+            else if (isChecked && !isRightAns) classes += 'wrong-ans ';
+            else classes += 'opacity-50 ';
+        }
+
+        label.className = classes;
+        
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.className = 'option-input rounded';
+        input.checked = isChecked;
+        input.disabled = currentState.submitted;
+        input.onchange = (e) => {
+            if (!currentState.submitted) {
+                let ansArray = currentState.answers[q.id] || [];
+                if (e.target.checked) ansArray.push(idx);
+                else ansArray = ansArray.filter(v => v !== idx);
+                
+                if (ansArray.length > 0) currentState.answers[q.id] = ansArray;
+                else delete currentState.answers[q.id];
+                updateSidebarUI();
+            }
+        };
+        
+        const span = document.createElement('span');
+        span.className = 'text-slate-700 leading-snug';
+        span.innerHTML = opt;
+        
+        label.appendChild(input);
+        label.appendChild(span);
+        container.appendChild(label);
+    });
+}
+
+function renderMatch(q, container) {
+    const note = document.createElement('div');
+    note.className = 'text-xs text-blue-600 mb-6 bg-blue-50 p-3 rounded-lg border border-blue-100 shrink-0';
+    note.innerHTML = '<i class="fas fa-arrows-alt-v mr-1"></i> <b>Geser (Drag & Drop)</b> kotak di sebelah kanan atau gunakan tombol panah agar sejajar dengan pasangan yang tepat di kotak sebelah kiri.';
+    container.appendChild(note);
+
+    let currentOrder = [];
+    if (currentState.answers[q.id]) {
+        let ans = currentState.answers[q.id];
+        let unassigned = q.right.map((_, i) => i);
+        for (let i = 0; i < q.left.length; i++) {
+            let rIdx = parseInt(ans[i] !== undefined ? ans[i] : i);
+            currentOrder.push(rIdx);
+            unassigned = unassigned.filter(id => id !== rIdx);
+        }
+        currentOrder.push(...unassigned);
+    } else {
+        currentOrder = q.right.map((_, i) => i);
+    }
+
+    const saveOrder = () => {
+        let ansObj = {};
+        currentOrder.forEach((rightOriginalIdx, leftIdx) => {
+            if (leftIdx < q.left.length) {
+                ansObj[leftIdx] = rightOriginalIdx.toString();
+            }
+        });
+        currentState.answers[q.id] = ansObj;
+        updateSidebarUI();
+    };
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex flex-col gap-3 w-full relative pb-6 shrink-0';
+
+    const refreshUI = () => {
+        wrapper.innerHTML = '';
+        
+        const header = document.createElement('div');
+        header.className = 'flex gap-2 md:gap-4 mb-2 px-1';
+        header.innerHTML = '<div class="flex-1 font-bold text-slate-500 text-xs md:text-sm text-center uppercase tracking-wider">Data / Konsep</div><div class="w-6 md:w-8"></div><div class="flex-1 font-bold text-slate-500 text-xs md:text-sm text-center uppercase tracking-wider">Pasangan (Geser)</div>';
+        wrapper.appendChild(header);
+
+        currentOrder.forEach((rightOriginalIdx, index) => {
+            const rightText = q.right[rightOriginalIdx];
+            const row = document.createElement('div');
+            row.className = 'flex items-stretch gap-2 md:gap-4 w-full group';
+
+            const leftBox = document.createElement('div');
+            const connector = document.createElement('div');
+            
+            if (index < q.left.length) {
+                leftBox.className = 'flex-1 p-3 md:p-4 bg-slate-100 border border-slate-200 rounded-xl flex items-center text-sm font-medium text-slate-700 shadow-sm';
+                leftBox.innerHTML = q.left[index];
+                
+                connector.className = 'flex items-center justify-center w-6 md:w-8 text-slate-300';
+                connector.innerHTML = '<i class="fas fa-link"></i>';
+            } else {
+                leftBox.className = 'flex-1';
+                connector.className = 'w-6 md:w-8';
+            }
+
+            const rightBox = document.createElement('div');
+            let boxClasses = 'flex-1 p-2 md:p-3 border rounded-xl flex items-center justify-between text-sm font-medium bg-white transition-all duration-200 ';
+            
+            if (currentState.submitted) {
+                if (index < q.left.length) {
+                    const isCorrect = q.answer[index] === rightOriginalIdx.toString();
+                    if (isCorrect) {
+                        boxClasses += 'border-emerald-400 bg-emerald-50 text-emerald-800 shadow-sm';
+                        rightBox.innerHTML = `<span class="px-2">${rightText}</span><i class="fas fa-check-circle text-emerald-500 text-lg mr-2 shrink-0"></i>`;
+                    } else {
+                        boxClasses += 'border-red-400 bg-red-50 text-red-800 shadow-sm';
+                        rightBox.innerHTML = `<span class="px-2">${rightText}</span><i class="fas fa-times-circle text-red-500 text-lg mr-2 shrink-0"></i>`;
+                    }
+                } else {
+                    boxClasses += 'border-slate-200 text-slate-400 bg-slate-50 opacity-60';
+                    rightBox.innerHTML = `<span class="px-2">${rightText}</span>`;
+                }
+            } else {
+                boxClasses += 'border-blue-200 cursor-grab hover:border-blue-400 hover:shadow-md active:cursor-grabbing';
+                rightBox.draggable = true;
+                rightBox.innerHTML = `
+                    <div class="flex items-center gap-3 w-full">
+                        <i class="fas fa-grip-vertical text-slate-300 group-hover:text-blue-400 transition-colors ml-1 hidden md:block shrink-0"></i>
+                        <span class="flex-1 leading-snug text-slate-700">${rightText}</span>
+                    </div>
+                    <div class="flex flex-col gap-1 ml-2 shrink-0">
+                        <button class="up-btn text-slate-400 hover:text-blue-600 hover:bg-blue-50 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 transition-colors" ${index === 0 ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : ''}><i class="fas fa-chevron-up text-xs"></i></button>
+                        <button class="down-btn text-slate-400 hover:text-blue-600 hover:bg-blue-50 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 transition-colors" ${index === currentOrder.length - 1 ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : ''}><i class="fas fa-chevron-down text-xs"></i></button>
+                    </div>
+                `;
+
+                rightBox.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', index);
+                    setTimeout(() => rightBox.classList.add('opacity-40', 'scale-95', 'z-10'), 0);
+                });
+                rightBox.addEventListener('dragend', () => {
+                    rightBox.classList.remove('opacity-40', 'scale-95', 'z-10');
+                });
+                rightBox.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    rightBox.classList.add('border-blue-500', 'bg-blue-50', 'scale-105', 'shadow-lg');
+                });
+                rightBox.addEventListener('dragleave', () => {
+                    rightBox.classList.remove('border-blue-500', 'bg-blue-50', 'scale-105', 'shadow-lg');
+                });
+                rightBox.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    rightBox.classList.remove('border-blue-500', 'bg-blue-50', 'scale-105', 'shadow-lg');
+                    const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                    const toIndex = index;
+                    
+                    if (fromIndex !== toIndex && !isNaN(fromIndex)) {
+                        const temp = currentOrder[fromIndex];
+                        currentOrder[fromIndex] = currentOrder[toIndex];
+                        currentOrder[toIndex] = temp;
+                        saveOrder();
+                        refreshUI();
+                    }
+                });
+
+                const upBtn = rightBox.querySelector('.up-btn');
+                const downBtn = rightBox.querySelector('.down-btn');
+                
+                if (upBtn) {
+                    upBtn.onclick = (e) => {
+                        e.stopPropagation(); 
+                        if (index > 0) {
+                            const temp = currentOrder[index];
+                            currentOrder[index] = currentOrder[index - 1];
+                            currentOrder[index - 1] = temp;
+                            saveOrder();
+                            refreshUI();
+                        }
+                    };
+                }
+                if (downBtn) {
+                    downBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        if (index < currentOrder.length - 1) {
+                            const temp = currentOrder[index];
+                            currentOrder[index] = currentOrder[index + 1];
+                            currentOrder[index + 1] = temp;
+                            saveOrder();
+                            refreshUI();
+                        }
+                    };
+                }
+            }
+
+            rightBox.className = boxClasses;
+            row.appendChild(leftBox);
+            row.appendChild(connector);
+            row.appendChild(rightBox);
+            wrapper.appendChild(row);
+        });
+    };
+
+    refreshUI();
+    
+    if (!currentState.submitted && !currentState.answers[q.id]) {
+        saveOrder(); 
+    }
+    
+    container.appendChild(wrapper);
+}
+
+function checkAnswerCorrectness(qId) {
+    const q = questions.find(x => x.id === qId);
+    const userAns = currentState.answers[qId];
+    if (userAns === undefined) return false;
+
+    if (q.type === 'mcq' || q.type === 'tf') {
+        return userAns === q.answer;
+    } else if (q.type === 'cmcq') {
+        if (!Array.isArray(userAns)) return false;
+        if (userAns.length !== q.answer.length) return false;
+        return q.answer.every(val => userAns.includes(val));
+    } else if (q.type === 'match') {
+        const expectedKeys = Object.keys(q.answer);
+        const userKeys = Object.keys(userAns);
+        if (expectedKeys.length !== userKeys.length) return false;
+        for (let k of expectedKeys) {
+            if (q.answer[k] !== userAns[k]) return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+function confirmSubmit() {
+    const answered = Object.keys(currentState.answers).length;
+    const total = questions.length;
+    
+    let msg = `Anda telah menjawab <b>${answered}</b> dari <b>${total}</b> soal.<br><br>Apakah Anda yakin ingin menyelesaikan asesmen ini?`;
+    if (answered < total) {
+        msg = `<span class="text-red-600 font-semibold">PERINGATAN: Masih ada ${total - answered} soal yang BELUM dijawab!</span><br><br>Tetap kumpulkan?`;
+    }
+
+    document.getElementById('submit-msg').innerHTML = msg;
+    document.getElementById('submit-modal').classList.remove('hidden');
+}
+
+function cancelSubmit() {
+    document.getElementById('submit-modal').classList.add('hidden');
+}
+
+function proceedSubmit() {
+    document.getElementById('submit-modal').classList.add('hidden');
+    calculateScore();
+}
+
+function calculateScore() {
+    if (timerInterval) clearInterval(timerInterval);
+    document.getElementById('timer-display').classList.add('hidden');
+
+    currentState.submitted = true;
+    let litCorrect = 0;
+    let numCorrect = 0;
+
+    questions.forEach(q => {
+        if (checkAnswerCorrectness(q.id)) {
+            if (q.domain === 'literasi') litCorrect++;
+            else numCorrect++;
+        }
+    });
+
+    const totalLit = questions.filter(q => q.domain === 'literasi').length;
+    const totalNum = questions.filter(q => q.domain === 'numerasi').length;
+    const totalCorrect = litCorrect + numCorrect;
+
+    const litScore = Math.round((litCorrect / totalLit) * 100);
+    const numScore = Math.round((numCorrect / totalNum) * 100);
+
+    let levelTxt = "Cakap";
+    const avg = (litScore + numScore) / 2;
+    if (avg < 40) levelTxt = "Perlu Intervensi Khusus";
+    else if (avg < 70) levelTxt = "Dasar";
+    else if (avg < 90) levelTxt = "Cakap";
+    else levelTxt = "Mahir (HOTS)";
+
+    document.getElementById('res-name').textContent = currentState.student.name;
+    document.getElementById('res-class').textContent = currentState.student.class;
+    document.getElementById('score-literasi').textContent = litScore;
+    document.getElementById('score-numerasi').textContent = numScore;
+    document.getElementById('res-correct').textContent = totalCorrect;
+    document.getElementById('res-total').textContent = questions.length;
+    document.getElementById('res-level').textContent = levelTxt;
+
+    document.getElementById('btn-submit').classList.add('hidden');
+    document.getElementById('result-modal').classList.remove('hidden');
+    
+    updateSidebarUI();
+}
+
+function reviewQuiz() {
+    document.getElementById('result-modal').classList.add('hidden');
+    loadQuestion(0);
+}
+
+/* --- PERLINDUNGAN FULLSCREEN & TOMBOL BACK --- */
+document.addEventListener('fullscreenchange', checkFullscreen);
+document.addEventListener('webkitfullscreenchange', checkFullscreen);
+document.addEventListener('msfullscreenchange', checkFullscreen);
+
+function checkFullscreen() {
+    if (currentState.isLoggedIn) {
+        const isFS = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+        if (!isFS) {
+            document.getElementById('fullscreen-enforcer').classList.remove('hidden');
+            document.getElementById('fullscreen-enforcer').classList.add('flex');
+        }
+    }
+}
+
+function resumeFullscreen() {
+    const elem = document.documentElement;
+    let promise;
+    
+    if (elem.requestFullscreen) {
+        promise = elem.requestFullscreen();
+    } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+        document.getElementById('fullscreen-enforcer').classList.add('hidden');
+        document.getElementById('fullscreen-enforcer').classList.remove('flex');
+        return;
+    } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+        document.getElementById('fullscreen-enforcer').classList.add('hidden');
+        document.getElementById('fullscreen-enforcer').classList.remove('flex');
+        return;
+    }
+    
+    if (promise !== undefined) {
+        promise.then(() => {
+            document.getElementById('fullscreen-enforcer').classList.add('hidden');
+            document.getElementById('fullscreen-enforcer').classList.remove('flex');
+        }).catch(err => {
+            console.log("Kesalahan:", err);
+        });
+    }
+}
+
+window.addEventListener('popstate', function(event) {
+    if (currentState.isLoggedIn) {
+        history.pushState(null, document.title, location.href);
+        checkFullscreen();
+    }
+});
+
+/* --- FITUR ANTI-SCREENSHOT & ANTI-CHEAT --- */
+document.addEventListener('contextmenu', event => event.preventDefault());
+
+function hideScreenForSecurity() {
+    if (currentState.isLoggedIn && !currentState.submitted) {
+        document.getElementById('anti-screenshot-overlay').classList.remove('hidden');
+    }
+}
+
+function showScreenForSecurity() {
+    document.getElementById('anti-screenshot-overlay').classList.add('hidden');
+}
+
+window.addEventListener('blur', hideScreenForSecurity);
+window.addEventListener('focus', showScreenForSecurity);
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) hideScreenForSecurity();
+    else showScreenForSecurity();
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'PrintScreen') {
+        try { navigator.clipboard.writeText(''); } catch(err) {}
+        hideScreenForSecurity();
+        setTimeout(showScreenForSecurity, 2000); 
+    }
+});
+
+window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey && e.key === 'p') || (e.metaKey && e.shiftKey)) {
+        e.preventDefault();
+        hideScreenForSecurity();
+        setTimeout(showScreenForSecurity, 2000);
+    }
+});
+
+window.addEventListener('touchstart', (e) => {
+    if (e.touches.length >= 3) {
+        hideScreenForSecurity();
+        setTimeout(showScreenForSecurity, 3000); 
+    }
+}, { passive: false });
+
+/* --- ANTI SPLIT-SCREEN --- */
+function checkSplitScreen() {
+    if (!currentState.isLoggedIn || currentState.submitted) return;
+
+    const winW = window.innerWidth;
+    const winH = window.innerHeight;
+    const screenW = window.screen.availWidth || window.screen.width;
+    const screenH = window.screen.availHeight || window.screen.height;
+
+    const isSplitHorizontal = (winW / screenW) < 0.85;
+    const isSplitVertical = (winH / screenH) < 0.45;
+
+    const overlay = document.getElementById('split-screen-overlay');
+    
+    if (isSplitHorizontal || isSplitVertical) {
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+    } else {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+    }
+}
+
+window.addEventListener('resize', checkSplitScreen);
+setInterval(checkSplitScreen, 1500); 
+
+</script>
+</body>
+</html>
